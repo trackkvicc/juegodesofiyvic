@@ -97,8 +97,8 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
 .hpbar i{display:block;height:100%;background:var(--c);transition:width .8s ease}
 .guessbox{position:absolute;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:5;display:flex;flex-direction:column;gap:8px;width:380px;height:290px;transition:width .2s,height .2s;opacity:.92}
 .guessbox:hover,.guessbox.big{width:min(760px,calc(100vw - 24px));height:min(540px,70vh);opacity:1}
-.cont{font:800 15px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#1b2f4a;text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 10px #fff;white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%)}
-.cont.ocean{font:600 italic 12px/1 var(--body);letter-spacing:.2em;color:#3f6d99}
+.cont{font:700 10px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#1b2f4a;text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 10px #fff;white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%)}
+.cont.ocean{font:500 italic 9px/1 var(--body);letter-spacing:.08em;color:#3f6d99}
 .guessbox #gmap{flex:1;border-radius:12px;border:2px solid var(--ink)}
 .guessbox .btn{width:100%}
 @media (max-width:600px){.guessbox{width:calc(100vw - 24px);height:240px}.guessbox.big{height:62vh}}
@@ -339,7 +339,7 @@ function continentLayer(map){
   const lay=L.layerGroup();
   for(const [n,la,lo,k] of CONTINENTES) for(const off of [-360,0,360])
     L.marker([la,lo+off],{interactive:false,keyboard:false,icon:L.divIcon({className:"",iconSize:null,
-      html:`<div class="cont${k===2?" ocean":""}"${k===1?' style="font-size:11px"':""}>${n}</div>`})}).addTo(lay);
+      html:`<div class="cont${k===2?" ocean":""}"${k===1?' style="font-size:8px"':""}>${n}</div>`})}).addTo(lay);
   const upd=()=>{ map.getZoom()<=4 ? lay.addTo(map) : lay.remove(); };
   map.on("zoomend",upd); upd(); return lay;
 }
