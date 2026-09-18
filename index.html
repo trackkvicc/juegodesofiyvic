@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>juegodesofiyvic</title>
+<title>Juego de Sofi y Vic</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Figtree:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -76,6 +76,22 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
 .chip b{font:600 17px var(--mono)}
 .chip span{font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .chip.timer b{color:var(--red)}
+.chip.timer.hurry{border-color:var(--red);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{background:rgba(239,91,91,.35)}}
+.restart{position:absolute;left:12px;top:calc(96px + env(safe-area-inset-top));z-index:5;background:rgba(11,22,34,.88);color:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:600 13px var(--body)}
+.restart:hover{border-color:var(--brass)}
+.hist{width:100%;border-collapse:collapse;font-size:14px}
+.hist td,.hist th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+.hist th{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.hist td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.histwrap{overflow-x:auto;max-height:32vh;overflow-y:auto}
+.country{font:800 22px var(--display);color:var(--paper)}
+.boards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.board{background:var(--deep);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.board h3{margin:0;font:800 20px var(--display)}
+.board .hist td:first-child{width:2.2em;color:var(--brass);font-family:var(--mono)}
+.board .me td{color:var(--brass)}
+.board .hist td,.board .hist th{padding:6px 5px}
 .hp{min-width:150px}
 .hpbar{height:7px;border-radius:4px;background:#0006;overflow:hidden;margin-top:4px}
 .hpbar i{display:block;height:100%;background:var(--c);transition:width .8s ease}
@@ -128,7 +144,7 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
 <!-- MENÚ -->
 <section class="screen" id="menu">
   <div class="wrap">
-    <div class="brand"><svg class="rose"><use href="#rose"/></svg><h1 style="font-size:clamp(34px,8vw,76px)">juegode<em>sofiyvic</em></h1></div>
+    <div class="brand"><svg class="rose"><use href="#rose"/></svg><h1 style="font-size:clamp(38px,8vw,76px)">Juego de <em>Sofi y Vic</em></h1></div>
     <p class="tag">Te soltamos en una calle cualquiera del planeta. Mira, muévete, y marca en el mapa dónde crees que estás. Cuanto más cerca, más puntos: hasta <span class="num">5.000</span> por ronda.</p>
     <div class="field" style="max-width:320px">
       <label for="myname">Tu nombre</label>
@@ -138,6 +154,11 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
       <button class="mode" id="goSolo"><span class="k">1 jugador</span><h2>Clásico</h2><p>5 rondas por el mundo. Suma todo lo que puedas: el máximo son 25.000.</p></button>
       <button class="mode" id="goHost"><span class="k">Online · crear sala</span><h2>Equipos</h2><p>Rojo contra Azul, 6.000 de vida cada uno. Gana la ronda el equipo con la mejor adivinanza y resta la diferencia al otro.</p></button>
       <button class="mode" id="goJoin"><span class="k">Online · unirse</span><h2>Tengo código</h2><p>Un amigo ha creado una sala. Escribe su código de 5 letras y elige equipo.</p></button>
+    </div>
+    <div class="field"><h2>Clasificación</h2><p class="hint">Se guarda en este dispositivo. La de equipos se actualiza con cada partida online que juegues.</p></div>
+    <div class="boards">
+      <div class="board"><h3>Clásico · mejores partidas</h3><div class="histwrap" id="boardSolo"></div></div>
+      <div class="board"><h3>Equipos · jugadores</h3><div class="histwrap" id="boardTeam"></div></div>
     </div>
     <p class="hint">Consejo: busca carteles, matrículas, por qué lado conducen, el idioma, las líneas de la carretera y la vegetación.</p>
   </div>
@@ -162,7 +183,7 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
     <button class="btn ghost small back" data-back>← Salir</button>
     <div class="row" style="justify-content:space-between">
       <div><div class="hint">Código de la sala</div><div class="lobby-code" id="lobbyCode">·····</div></div>
-      <button class="btn ghost small" id="copyCode">Copiar código</button>
+      <div class="row"><button class="btn small" id="copyLink">Copiar enlace de invitación</button><button class="btn ghost small" id="copyCode">Copiar código</button></div>
     </div>
     <div class="teams">
       <div class="team" style="--c:var(--red)"><h3>Rojo</h3><ul id="teamR"></ul><button class="btn ghost small" data-team="R">Unirme a Rojo</button></div>
@@ -187,6 +208,7 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
 <section id="game" hidden>
   <iframe id="sv" title="Vista de calle" allow="accelerometer; gyroscope; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
   <div class="mask-addr"></div><div class="mask-foot"></div>
+  <button class="restart" id="restartBtn" title="Volver al punto de salida">⟲ Volver al inicio</button>
   <div class="loading" id="loading">Buscando un sitio en el mundo…</div>
   <div class="hud" id="hud"></div>
   <div class="toast" id="toast" hidden></div>
@@ -208,7 +230,7 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
 const $ = s => document.querySelector(s);
 const fmt = n => Math.round(n).toLocaleString("es-ES");
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function show(id){ for (const s of ["menu","join","lobby","game","result"]) $("#"+s).hidden = s!==id; }
+function show(id){ for (const s of ["menu","join","lobby","game","result"]) $("#"+s).hidden = s!==id; if(id==="menu") renderBoards(); }
 function km(a,b){ const R=6371,r=Math.PI/180,dl=(b.lat-a.lat)*r,dn=(b.lng-a.lng)*r;
   const h=Math.sin(dl/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
 const points = d => d==null ? 0 : Math.round(5000*Math.exp(-d/1492.7));
@@ -217,6 +239,29 @@ function toast(t,ms=2500){ const e=$("#toast"); e.textContent=t; e.hidden=false;
 const myName = () => ($("#myname").value.trim() || "Jugador").slice(0,18);
 try{ $("#myname").value = localStorage.getItem("rumbo.name") || ""; }catch{}
 $("#myname").addEventListener("change", ()=>{ try{ localStorage.setItem("rumbo.name", $("#myname").value.trim()); }catch{} });
+
+/* ================== clasificaciones (guardadas en este dispositivo) ================== */
+const store={ get(k,d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } },
+              set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} } };
+const keyOf = n => String(n).trim().toLowerCase();
+function saveSolo(name,total,hist){
+  const b=store.get("jsv.solo",[]);
+  b.push({name,total,date:Date.now(),best:Math.max(...hist.map(h=>h.p))});
+  b.sort((a,c)=>c.total-a.total); store.set("jsv.solo",b.slice(0,50));
+}
+function teamStat(name,f){ const b=store.get("jsv.team",{}), k=keyOf(name);
+  b[k]=b[k]||{name,partidas:0,victorias:0,rondas:0,puntos:0,mejor:0}; b[k].name=name; f(b[k]); store.set("jsv.team",b); }
+function renderBoards(){
+  const me=keyOf(myName()), date=t=>new Date(t).toLocaleDateString("es-ES",{day:"numeric",month:"short"});
+  const solo=store.get("jsv.solo",[]).slice(0,10);
+  $("#boardSolo").innerHTML = solo.length ? `<table class="hist"><tr><th>#</th><th>Jugador</th><th style="text-align:right">Puntos</th><th style="text-align:right">Fecha</th></tr>
+    ${solo.map((r,i)=>`<tr class="${keyOf(r.name)===me?"me":""}"><td>${i+1}</td><td>${esc(r.name)}</td><td class="n">${fmt(r.total)}</td><td class="n">${date(r.date)}</td></tr>`).join("")}</table>`
+    : `<p class="hint">Aún no hay partidas. Juega una en Clásico y aparecerás aquí.</p>`;
+  const team=Object.values(store.get("jsv.team",{})).sort((a,c)=>c.victorias-a.victorias || c.puntos/Math.max(1,c.rondas)-a.puntos/Math.max(1,a.rondas)).slice(0,15);
+  $("#boardTeam").innerHTML = team.length ? `<table class="hist"><tr><th>#</th><th>Jugador</th><th style="text-align:right" title="Victorias">Gan.</th><th style="text-align:right" title="Partidas jugadas">Jug.</th><th style="text-align:right" title="Media de puntos por ronda">Media</th><th style="text-align:right" title="Mejor ronda">Mejor</th></tr>
+    ${team.map((r,i)=>`<tr class="${keyOf(r.name)===me?"me":""}"><td>${i+1}</td><td>${esc(r.name)}</td><td class="n">${r.victorias}</td><td class="n">${r.partidas}</td><td class="n">${fmt(r.puntos/Math.max(1,r.rondas))}</td><td class="n">${fmt(r.mejor)}</td></tr>`).join("")}</table>`
+    : `<p class="hint">Aún no hay partidas online. Crea una sala en Equipos.</p>`;
+}
 
 /* ================== buscar un sitio con Street View ================== */
 // [latMin, latMax, lngMin, lngMax, peso] — zonas con buena cobertura de Google
@@ -258,18 +303,28 @@ function svSearch(lat,lng,radius){
     document.head.appendChild(s);
   });
 }
+async function countryOf(lat,lng){
+  try{
+    const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),4000);
+    const j=await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=3&accept-language=es&lat=${lat}&lon=${lng}`,{signal:ctl.signal})).json();
+    clearTimeout(t); return {country:j.address?.country||"", cc:(j.address?.country_code||"").slice(0,2)};
+  }catch{ return {country:"",cc:""}; }
+}
+const flag = cc => /^[a-z]{2}$/.test(cc||"") ? String.fromCodePoint(...[...cc.toUpperCase()].map(c=>0x1F1A5+c.charCodeAt(0))) : "📍";
+const placeLine = loc => `<span class="country">${flag(loc.cc)} ${esc(loc.country||"")}</span> <span class="place">${esc(loc.place||"")} · ${gmapsLink(loc)}</span>`;
 async function findLocation(){
   for(let i=0;i<40;i++){
     const z=pickZone(), lat=z[0]+Math.random()*(z[1]-z[0]), lng=z[2]+Math.random()*(z[3]-z[2]);
     const r=await svSearch(lat,lng,50000);
-    if(r) return {...r, heading:Math.floor(Math.random()*360)};
+    if(r){ const c=await countryOf(r.lat,r.lng); return {...r, ...c, heading:Math.floor(Math.random()*360)}; }
   }
-  return {pano:"CsxbYOjHrboo2G_EHWPnqA",lat:41.38503,lng:2.17341,place:"Barcelona",heading:90};
+  return {pano:"CsxbYOjHrboo2G_EHWPnqA",lat:41.38503,lng:2.17341,place:"Barcelona",country:"España",cc:"es",heading:90};
 }
+let curLoc=null;
 function loadPano(loc){
-  $("#loading").hidden=false;
+  curLoc=loc; $("#loading").hidden=false;
   const sv=$("#sv");
-  sv.onload=()=>setTimeout(()=>$("#loading").hidden=true,600);
+  sv.onload=()=>setTimeout(()=>{ if(curLoc===loc) $("#loading").hidden=true; },600);
   sv.src="https://www.google.com/maps/embed?pb=!4v"+Date.now()+"!6m8!1m7!1s"+loc.pano+"!2m2!1d"+loc.lat+"!2d"+loc.lng+"!3f"+loc.heading+"!4f0!5f0.78";
 }
 
@@ -331,6 +386,18 @@ function drawResult(loc,guesses){ // guesses: [{lat,lng,color,label}]
     pts.push([g.lat,lng]); }
   setTimeout(()=>{ rmap.invalidateSize(); pts.length>1 ? rmap.fitBounds(pts,{padding:[50,50],maxZoom:12}) : rmap.setView(pts[0],6); },60);
 }
+function drawSummary(rounds){ // [{loc, guesses:[{lat,lng,color,label}]}]
+  const lay=resultMap(), pts=[];
+  rounds.forEach((r,i)=>{ const loc=r.loc;
+    L.marker([loc.lat,loc.lng],{icon:pinIcon("#f2c14e","flag"),zIndexOffset:1000}).bindTooltip(`${i+1}. ${flag(loc.cc)} ${esc(loc.country||loc.place)}`,{direction:"top",offset:[0,-22],className:"lbl"}).addTo(lay);
+    pts.push([loc.lat,loc.lng]);
+    for(const g of r.guesses){ if(g.lat==null) continue;
+      let lng=g.lng; while(lng-loc.lng>180) lng-=360; while(loc.lng-lng>180) lng+=360;
+      L.polyline([[loc.lat,loc.lng],[g.lat,lng]],{color:g.color,weight:2,dashArray:"5 6",opacity:.8}).addTo(lay);
+      L.circleMarker([g.lat,lng],{radius:5,color:"#fff",weight:2,fillColor:g.color,fillOpacity:1}).bindTooltip(esc(g.label),{direction:"top",className:"lbl"}).addTo(lay);
+      pts.push([g.lat,lng]); } });
+  setTimeout(()=>{ rmap.invalidateSize(); pts.length>1 ? rmap.fitBounds(pts,{padding:[40,40],maxZoom:6}) : pts.length && rmap.setView(pts[0],4); },60);
+}
 const gmapsLink = loc => `<a href="https://www.google.com/maps/@?api=1&map_action=pano&pano=${loc.pano}" target="_blank" rel="noopener" style="color:var(--brass)">Abrir en Google Maps ↗</a>`;
 
 /* ================== estado de partida ================== */
@@ -345,9 +412,9 @@ function startTimer(deadline,render){
 
 /* ---------- SOLO ---------- */
 const ROUND_SECS=180;
-const S={round:0,total:0,loc:null,next:null};
+const S={round:0,total:0,loc:null,next:null,hist:[]};
 async function soloStart(){
-  G.mode="solo"; G.team=null; S.round=0; S.total=0;
+  G.mode="solo"; G.team=null; S.round=0; S.total=0; S.hist=[];
   show("game"); initGuessMap(); S.next=findLocation(); soloRound();
 }
 async function soloRound(){
@@ -362,16 +429,21 @@ async function soloRound(){
 function soloGuess(){
   G.locked=true; clearInterval(timerInt);
   const d=G.pin?km(G.pin,S.loc):null, p=points(d); S.total+=p;
+  S.hist.push({loc:S.loc,pin:G.pin,d,p});
   show("result");
-  drawResult(S.loc,G.pin?[{...G.pin,color:COL.S,label:"Tú"}]:[]);
   const last=S.round===5;
+  if(last) saveSolo(myName(),S.total,S.hist);
+  if(last) drawSummary(S.hist.map((h,i)=>({loc:h.loc,guesses:h.pin?[{...h.pin,color:COL.S,label:"R"+(i+1)}]:[]})));
+  else drawResult(S.loc,G.pin?[{...G.pin,color:COL.S,label:"Tú"}]:[]);
   $("#rpanel").innerHTML=`
-    <div class="rhead"><h2>Ronda ${S.round} <span>de 5</span></h2><span class="place">${esc(S.loc.place)} · ${gmapsLink(S.loc)}</span></div>
+    <div class="rhead"><h2>Ronda ${S.round} <span>de 5</span></h2><div>${placeLine(S.loc)}</div></div>
     <div class="row" style="justify-content:space-between;gap:18px">
       <div><div class="final num">${fmt(p)} <small style="font-size:.4em;color:var(--muted)">puntos</small></div><div class="hint">${d==null?"Se acabó el tiempo sin chincheta":"Te has quedado a "+dist(d)}</div></div>
       ${last?`<div><div class="hint">Total</div><div class="final num" style="color:var(--brass)">${fmt(S.total)} <small style="font-size:.4em;color:var(--muted)">/ 25.000</small></div></div>`:""}
     </div>
     <div class="pbar"><i style="width:0"></i></div>
+    ${last?`<div class="histwrap"><table class="hist"><tr><th>Ronda</th><th>Lugar</th><th style="text-align:right">Distancia</th><th style="text-align:right">Puntos</th></tr>
+      ${S.hist.map((h,i)=>`<tr><td>${i+1}</td><td>${flag(h.loc.cc)} ${esc(h.loc.country||h.loc.place)}</td><td class="n">${dist(h.d)}</td><td class="n">${fmt(h.p)}</td></tr>`).join("")}</table></div>`:""}
     <div class="row">${last?`<button class="btn" id="again">Jugar otra vez</button><button class="btn ghost" data-back>Menú</button>`:`<button class="btn" id="nextR">Siguiente ronda</button>`}</div>`;
   requestAnimationFrame(()=>requestAnimationFrame(()=>$("#rpanel .pbar i").style.width=(p/50)+"%"));
   $("#nextR")?.addEventListener("click",soloRound);
@@ -449,15 +521,16 @@ function teamPins(team){
     .map(([id,p])=>({id,name:T.players[id].name,p,done:!!T.guesses[id]}));
   net.broadcast({t:"pins",team,list});
 }
-let endT=null;
+let endT=null, autoNext=null; const AUTO_NEXT=20;
 function armEnd(){ clearTimeout(endT); if(T.deadline) endT=setTimeout(hostEndRound,Math.max(0,T.deadline-Date.now())+300); }
 let nextLoc=null;
 async function hostStartGame(){
   const s=T.settings; s.hp=+$("#setHp").value; s.time=+$("#setTime").value; s.after=+$("#setAfter").value;
-  T.hp={R:s.hp,B:s.hp}; T.round=0; nextLoc=findLocation(); hostNextRound();
+  T.hp={R:s.hp,B:s.hp}; T.round=0; nextLoc=findLocation(); net.broadcast({t:"newgame"}); hostNextRound();
 }
 async function hostNextRound(){
-  T.phase="loading"; T.round++; T.guesses={}; T.pins={};
+  if(T.phase!=="result" && T.phase!=="lobby") return;
+  clearTimeout(autoNext); T.phase="loading"; T.round++; T.guesses={}; T.pins={};
   net.broadcast({t:"loading"});
   T.loc=await nextLoc; nextLoc=findLocation();
   T.deadline = T.settings.time ? Date.now()+T.settings.time*1000+3000 : 0;
@@ -478,10 +551,11 @@ function hostEndRound(){
   const over = T.hp.R<=0 || T.hp.B<=0;
   net.broadcast({t:"result",round:T.round,loc:T.loc,rows,best,mult:m,diff,loser,hp:{...T.hp},max:T.settings.hp,over});
   if(over) T.phase="over";
+  else { clearTimeout(autoNext); autoNext=setTimeout(()=>{ if(T.phase==="result") hostNextRound(); },AUTO_NEXT*1000); }
 }
 
 /* ---- lado de todos (anfitrión incluido) ---- */
-let lastLobby=null;
+let lastLobby=null, teamHist=[];
 function clientHandle(m){
   if(m.t==="lobby"){ lastLobby=m; T.players=m.players; T.settings=m.settings; G.team=m.players[T.me]?.team||G.team;
     if(m.late){ toast("La partida ya ha empezado: entrarás en la siguiente ronda",4000); }
@@ -500,9 +574,10 @@ function clientHandle(m){
     for(const x of m.list){ if(x.id===T.me) continue;
       L.marker([x.p.lat,x.p.lng],{icon:pinIcon(COL[m.team]),opacity:x.done?1:.55}).bindTooltip(esc(x.name)+(x.done?" ✓":""),{permanent:true,direction:"top",offset:[0,-22],className:"lbl"}).addTo(mateLayer); }
     return; }
-  if(m.t==="result"){ clearInterval(timerInt); renderTeamResult(m); return; }
+  if(m.t==="newgame"){ teamHist=[]; return; }
+  if(m.t==="result"){ clearInterval(timerInt); if(!teamHist.some(h=>h.round===m.round)){ teamHist.push(m); recordTeam(m); } renderTeamResult(m); return; }
 }
-function setTimerChip(s){ const c=$("#timerChip"); if(!c) return; c.hidden = s==null; if(s!=null) c.querySelector("b").textContent=`0:${String(s%60).padStart(2,"0")}`.replace(/^0:/, s>=60?Math.floor(s/60)+":":"0:"); }
+function setTimerChip(s){ const c=$("#timerChip"); if(!c) return; c.hidden = s==null; c.classList.toggle("hurry", s!=null && s<=15); if(s!=null) c.querySelector("b").textContent=`0:${String(s%60).padStart(2,"0")}`.replace(/^0:/, s>=60?Math.floor(s/60)+":":"0:"); }
 function renderTeamHud(hp,max,round,mu){
   const t=G.team, tn={R:"Rojo",B:"Azul"};
   hud(`<div class="chip hp" style="--c:var(--red)"><span>Rojo${t==="R"?" · tú":""}</span><b class="num">${fmt(hp.R)}</b><div class="hpbar"><i style="width:${hp.R/max*100}%"></i></div></div>
@@ -519,10 +594,16 @@ function renderLobby(){
   $("#hostSettings").hidden=!T.host; $("#startBtn").hidden=!T.host;
   if(!T.host) $("#lobbyHint").textContent="Esperando a que el anfitrión empiece la partida…";
 }
+function recordTeam(m){
+  for(const r of m.rows) teamStat(r.name,st=>{ st.rondas++; st.puntos+=r.pts; st.mejor=Math.max(st.mejor,r.pts); });
+  if(m.over){ const win=m.hp.R>0?"R":"B";
+    for(const r of m.rows) teamStat(r.name,st=>{ st.partidas++; if(r.team===win) st.victorias++; }); }
+}
 function renderTeamResult(m){
   show("result");
   const tn={R:"Rojo",B:"Azul"};
-  drawResult(m.loc, m.rows.map(r=>({lat:r.lat,lng:r.lng,color:COL[r.team],label:r.name})));
+  if(m.over) drawSummary(teamHist.map(h=>({loc:h.loc,guesses:h.rows.map(r=>({lat:r.lat,lng:r.lng,color:COL[r.team],label:`${h.round}. ${r.name}`}))})));
+  else drawResult(m.loc, m.rows.map(r=>({lat:r.lat,lng:r.lng,color:COL[r.team],label:r.name})));
   const list = t => m.rows.filter(r=>r.team===t).sort((a,b)=>b.pts-a.pts)
      .map(r=>`<div class="who">${esc(r.name)} — <span class="num">${fmt(r.pts)}</span> · ${dist(r.d)}</div>`).join("");
   const head = m.over
@@ -530,15 +611,22 @@ function renderTeamResult(m){
      : m.loser ? `<div class="dmg">${tn[m.loser==="R"?"B":"R"]} gana la ronda: −${fmt(m.diff)} de vida a ${tn[m.loser]}${m.mult>1?` (×${m.mult})`:""}</div>`
      : `<div class="dmg">Empate: nadie pierde vida</div>`;
   $("#rpanel").innerHTML=`
-    <div class="rhead"><h2>Ronda ${m.round}</h2><span class="place">${esc(m.loc.place)} · ${gmapsLink(m.loc)}</span></div>
+    <div class="rhead"><h2>Ronda ${m.round}</h2><div>${placeLine(m.loc)}</div></div>
     ${head}
+    ${m.over?`<div class="histwrap"><table class="hist"><tr><th>Ronda</th><th>Lugar</th><th style="text-align:right">Rojo</th><th style="text-align:right">Azul</th><th style="text-align:right">Daño</th></tr>
+      ${teamHist.map(h=>`<tr><td>${h.round}</td><td>${flag(h.loc.cc)} ${esc(h.loc.country||h.loc.place)}</td><td class="n">${fmt(h.best.R)}</td><td class="n">${fmt(h.best.B)}</td>
+        <td class="n" style="color:${h.loser?COL[h.loser]:"inherit"}">${h.loser?"−"+fmt(h.diff):"—"}</td></tr>`).join("")}</table></div>`:""}
     <div class="scores">
       ${["R","B"].map(t=>`<div class="sc" style="--c:${COL[t]}"><div class="hint">${tn[t]} · vida <span class="num">${fmt(m.hp[t])}</span> / ${fmt(m.max)}</div>
         <div class="big">${fmt(m.best[t])}</div>${list(t)}</div>`).join("")}
     </div>
     <div class="row">${T.host
       ? (m.over?`<button class="btn" id="rematch">Revancha</button><button class="btn ghost" data-back>Menú</button>`:`<button class="btn" id="nextR">Siguiente ronda</button>`)
-      : `<p class="hint">${m.over?"Fin de la partida.":"El anfitrión pasará a la siguiente ronda."}</p>`}</div>`;
+      : ""}${m.over?"":`<p class="hint" id="autoHint"></p>`}${!T.host&&m.over?`<p class="hint">Fin de la partida. El anfitrión puede pedir revancha.</p>`:""}</div>`;
+  if(!m.over){ const until=Date.now()+AUTO_NEXT*1000; clearInterval(renderTeamResult.i);
+    const tick=()=>{ const e=$("#autoHint"); if(!e) return clearInterval(renderTeamResult.i);
+      e.textContent=`La siguiente ronda empieza sola en ${Math.max(0,Math.ceil((until-Date.now())/1000))} s`; };
+    tick(); renderTeamResult.i=setInterval(tick,500); }
   $("#nextR")?.addEventListener("click",()=>{ $("#nextR").disabled=true; hostNextRound(); });
   $("#rematch")?.addEventListener("click",()=>{ T.phase="lobby"; show("lobby"); pushLobby(); });
   bindBack();
@@ -553,7 +641,11 @@ $("#goJoin").onclick=()=>{ show("join"); $("#joinCode").focus(); };
 $("#joinBtn").onclick=joinRoom;
 $("#joinCode").addEventListener("keydown",e=>{ if(e.key==="Enter") joinRoom(); });
 $("#startBtn").onclick=()=>{ $("#startBtn").disabled=true; hostStartGame(); };
-$("#copyCode").onclick=()=>{ navigator.clipboard?.writeText(T.code).then(()=>toast("Código copiado"),()=>{}); };
+$("#restartBtn").onclick=()=>{ if(curLoc) loadPano(curLoc); };
+$("#copyLink").onclick=()=>{ const u=location.origin+location.pathname+"?sala="+T.code;
+  navigator.clipboard?.writeText(u).then(()=>toastAny("Enlace copiado: pásaselo a tus amigos"),()=>{}); };
+function toastAny(t){ const e=$("#lobbyHint"); const prev=e.textContent; e.textContent=t; setTimeout(()=>{ if(e.textContent===t) e.textContent=prev; },3000); }
+$("#copyCode").onclick=()=>{ navigator.clipboard?.writeText(T.code).then(()=>toastAny("Código copiado"),()=>{}); };
 document.querySelectorAll("[data-team]").forEach(b=>b.onclick=()=>net.toHost({t:"team",team:b.dataset.team}));
 $("#guessBtn").onclick=()=>{
   if(!G.pin||G.locked) return;
@@ -561,8 +653,9 @@ $("#guessBtn").onclick=()=>{
   G.locked=true; net.toHost({t:"guess",p:G.pin});
   $("#guessBtn").disabled=true; $("#guessBtn").textContent="Hecho. Esperando al resto…";
 };
-document.addEventListener("keydown",e=>{ if((e.key===" "||e.key==="Enter") && !$("#game").hidden && !$("#guessBtn").disabled && document.activeElement.tagName!=="INPUT"){ e.preventDefault(); $("#guessBtn").click(); } });
+document.addEventListener("keydown",e=>{ if((e.key===" "||e.key==="Enter") && !$("#result").hidden){ const b=$("#nextR"); if(b&&!b.disabled){ e.preventDefault(); b.click(); return; } } if((e.key===" "||e.key==="Enter") && !$("#game").hidden && !$("#guessBtn").disabled && document.activeElement.tagName!=="INPUT"){ e.preventDefault(); $("#guessBtn").click(); } });
 // ?sala=ABCDE en el enlace abre directamente la pantalla de unirse
+renderBoards(); $("#myname").addEventListener("input",renderBoards);
 const qs=new URLSearchParams(location.search).get("sala"); if(qs){ show("join"); $("#joinCode").value=qs.toUpperCase(); }
 </script>
 </body>
