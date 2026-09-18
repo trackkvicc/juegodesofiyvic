@@ -79,11 +79,13 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
 .hp{min-width:150px}
 .hpbar{height:7px;border-radius:4px;background:#0006;overflow:hidden;margin-top:4px}
 .hpbar i{display:block;height:100%;background:var(--c);transition:width .8s ease}
-.guessbox{position:absolute;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:5;display:flex;flex-direction:column;gap:8px;width:300px;height:220px;transition:width .2s,height .2s;opacity:.8}
-.guessbox:hover,.guessbox.big{width:min(640px,calc(100vw - 24px));height:min(440px,60vh);opacity:1}
+.guessbox{position:absolute;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:5;display:flex;flex-direction:column;gap:8px;width:380px;height:290px;transition:width .2s,height .2s;opacity:.92}
+.guessbox:hover,.guessbox.big{width:min(760px,calc(100vw - 24px));height:min(540px,70vh);opacity:1}
+.cont{font:800 15px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#1b2f4a;text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 10px #fff;white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%)}
+.cont.ocean{font:600 italic 12px/1 var(--body);letter-spacing:.2em;color:#3f6d99}
 .guessbox #gmap{flex:1;border-radius:12px;border:2px solid var(--ink)}
 .guessbox .btn{width:100%}
-@media (max-width:600px){.guessbox{width:calc(100vw - 24px);height:180px}.guessbox.big{height:55vh}}
+@media (max-width:600px){.guessbox{width:calc(100vw - 24px);height:240px}.guessbox.big{height:62vh}}
 .sizer{position:absolute;top:6px;left:6px;z-index:500;background:var(--ink);color:var(--paper);border:0;border-radius:8px;padding:4px 9px;font:600 13px var(--mono)}
 .toast{position:absolute;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%);z-index:7;background:var(--brass);color:var(--brass-ink);padding:8px 16px;border-radius:10px;font-weight:700}
 
@@ -272,15 +274,29 @@ function loadPano(loc){
 }
 
 /* ================== mapas ================== */
-const TILES="https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const TATTR='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const TILES="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
+const TATTR='Mapa © Esri, HERE, Garmin, © OpenStreetMap';
+// Continentes y océanos en español, visibles con el mapa alejado
+const CONTINENTES=[["Europa",52,15],["Asia",45,90],["África",5,20],["América del Norte",45,-100],["Centroamérica",14,-86,1],
+  ["América del Sur",-15,-60],["Oceanía",-25,135],["Antártida",-78,20],
+  ["Océano Atlántico",25,-40,2],["Océano Pacífico",0,-145,2],["Océano Índico",-20,78,2],["Océano Ártico",80,0,2]];
+function continentLayer(map){
+  const lay=L.layerGroup();
+  for(const [n,la,lo,k] of CONTINENTES) for(const off of [-360,0,360])
+    L.marker([la,lo+off],{interactive:false,keyboard:false,icon:L.divIcon({className:"",iconSize:null,
+      html:`<div class="cont${k===2?" ocean":""}"${k===1?' style="font-size:11px"':""}>${n}</div>`})}).addTo(lay);
+  const upd=()=>{ map.getZoom()<=4 ? lay.addTo(map) : lay.remove(); };
+  map.on("zoomend",upd); upd(); return lay;
+}
 const pinIcon=(c,cls="")=>L.divIcon({className:"",html:`<div class="pin ${cls}" style="--c:${c}">${cls==="flag"?"⚑":""}</div>`,iconSize:[22,22],iconAnchor:[11,22]});
 const COL={R:"#ef5b5b",B:"#4aa3ff",S:"#f2c14e"};
 let gmap, myPin=null, mateLayer;
 function initGuessMap(){
   if(gmap) return;
-  gmap=L.map("gmap",{worldCopyJump:true,zoomControl:false,attributionControl:false}).setView([25,5],1);
+  gmap=L.map("gmap",{worldCopyJump:true,zoomControl:true,attributionControl:false,minZoom:1,zoomSnap:0.5}).setView([20,10],1);
+  gmap.zoomControl.setPosition("topright");
   L.tileLayer(TILES,{maxZoom:18}).addTo(gmap);
+  continentLayer(gmap);
   mateLayer=L.layerGroup().addTo(gmap);
   gmap.on("click",e=>{ if(G.locked) return; placePin(e.latlng); });
   $("#sizer").addEventListener("click",e=>{ e.stopPropagation(); $("#guessbox").classList.toggle("big"); setTimeout(()=>gmap.invalidateSize(),250); });
@@ -297,12 +313,12 @@ function resetGuess(){
   if(myPin){ myPin.remove(); myPin=null; } mateLayer.clearLayers();
   G.pin=null; G.locked=false;
   const b=$("#guessBtn"); b.disabled=true; b.textContent="Coloca tu chincheta en el mapa";
-  gmap.setView([25,5],1); setTimeout(()=>gmap.invalidateSize(),50);
+  gmap.setView([20,10],1); setTimeout(()=>gmap.invalidateSize(),50);
 }
 let rmap, rlayer;
 function resultMap(){
   if(!rmap){ rmap=L.map("rmap",{worldCopyJump:true}).setView([20,0],2);
-    L.tileLayer(TILES,{maxZoom:18,attribution:TATTR}).addTo(rmap); rlayer=L.layerGroup().addTo(rmap); }
+    L.tileLayer(TILES,{maxZoom:18,attribution:TATTR}).addTo(rmap); continentLayer(rmap); rlayer=L.layerGroup().addTo(rmap); }
   rlayer.clearLayers(); rmap.invalidateSize({pan:false}); return rlayer;
 }
 function drawResult(loc,guesses){ // guesses: [{lat,lng,color,label}]
