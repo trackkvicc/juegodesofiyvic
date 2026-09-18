@@ -170,7 +170,7 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
       <div class="field"><label for="setHp">Vida inicial</label>
         <select id="setHp"><option value="3000">3.000</option><option value="6000" selected>6.000</option><option value="10000">10.000</option></select></div>
       <div class="field"><label for="setTime">Tiempo por ronda</label>
-        <select id="setTime"><option value="0" selected>Sin límite</option><option value="60">1 min</option><option value="120">2 min</option><option value="180">3 min</option></select></div>
+        <select id="setTime"><option value="0">Sin límite</option><option value="60">1 min</option><option value="120">2 min</option><option value="180" selected>3 min</option></select></div>
       <div class="field"><label for="setAfter">Tras la primera adivinanza</label>
         <select id="setAfter"><option value="15" selected>15 s</option><option value="30">30 s</option><option value="0">Esperar a todos</option></select></div>
     </div>
@@ -328,6 +328,7 @@ function startTimer(deadline,render){
 }
 
 /* ---------- SOLO ---------- */
+const ROUND_SECS=180;
 const S={round:0,total:0,loc:null,next:null};
 async function soloStart(){
   G.mode="solo"; G.team=null; S.round=0; S.total=0;
@@ -337,18 +338,21 @@ async function soloRound(){
   S.round++; resetGuess(); show("game"); $("#loading").hidden=false;
   S.loc=await S.next; if(S.round<5) S.next=findLocation();
   loadPano(S.loc);
-  hud(`<div class="chip"><span>Ronda</span><b class="num">${S.round} / 5</b></div><div class="chip"><span>Puntos</span><b class="num">${fmt(S.total)}</b></div>`);
+  hud(`<div class="chip"><span>Ronda</span><b class="num">${S.round} / 5</b></div><div class="chip"><span>Puntos</span><b class="num">${fmt(S.total)}</b></div>
+       <div class="chip timer" id="timerChip"><span>Tiempo</span><b class="num">3:00</b></div>`);
+  const round=S.round;
+  startTimer(Date.now()+ROUND_SECS*1000+2000, s=>{ setTimerChip(s); if(s<=0 && !G.locked && S.round===round) soloGuess(); });
 }
 function soloGuess(){
-  G.locked=true;
-  const d=km(G.pin,S.loc), p=points(d); S.total+=p;
+  G.locked=true; clearInterval(timerInt);
+  const d=G.pin?km(G.pin,S.loc):null, p=points(d); S.total+=p;
   show("result");
-  drawResult(S.loc,[{...G.pin,color:COL.S,label:"Tú"}]);
+  drawResult(S.loc,G.pin?[{...G.pin,color:COL.S,label:"Tú"}]:[]);
   const last=S.round===5;
   $("#rpanel").innerHTML=`
     <div class="rhead"><h2>Ronda ${S.round} <span>de 5</span></h2><span class="place">${esc(S.loc.place)} · ${gmapsLink(S.loc)}</span></div>
     <div class="row" style="justify-content:space-between;gap:18px">
-      <div><div class="final num">${fmt(p)} <small style="font-size:.4em;color:var(--muted)">puntos</small></div><div class="hint">Te has quedado a ${dist(d)}</div></div>
+      <div><div class="final num">${fmt(p)} <small style="font-size:.4em;color:var(--muted)">puntos</small></div><div class="hint">${d==null?"Se acabó el tiempo sin chincheta":"Te has quedado a "+dist(d)}</div></div>
       ${last?`<div><div class="hint">Total</div><div class="final num" style="color:var(--brass)">${fmt(S.total)} <small style="font-size:.4em;color:var(--muted)">/ 25.000</small></div></div>`:""}
     </div>
     <div class="pbar"><i style="width:0"></i></div>
@@ -360,7 +364,7 @@ function soloGuess(){
 }
 
 /* ---------- EQUIPOS (online, el anfitrión manda) ---------- */
-const T={ players:{}, hp:{R:6000,B:6000}, round:0, loc:null, guesses:{}, pins:{}, settings:{hp:6000,time:0,after:15},
+const T={ players:{}, hp:{R:6000,B:6000}, round:0, loc:null, guesses:{}, pins:{}, settings:{hp:6000,time:180,after:15},
           deadline:0, phase:"lobby", host:false, me:null, code:null };
 const mult = r => r<=4 ? 1 : 1+0.5*(r-4);
 let peer=null, conns={}, hostConn=null;
