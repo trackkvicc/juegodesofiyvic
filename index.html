@@ -21,7 +21,7 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{background:var(--ink);color:var(--paper);font:15px/1.45 var(--body);overflow:hidden}
+body{background:var(--ink);color:var(--paper);font:15px/1.45 var(--body);overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
 button{font:inherit;cursor:pointer}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
 [hidden]{display:none!important}
@@ -104,7 +104,49 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
 .cont.ocean{font:500 italic 9px/1 var(--body);letter-spacing:.08em;color:#3f6d99}
 .guessbox #gmap{flex:1;border-radius:12px;border:2px solid var(--ink)}
 .guessbox .btn{width:100%}
-@media (max-width:600px){.guessbox{width:calc(100vw - 24px);height:240px}.guessbox.big{height:62vh}}
+/* capa que recoge el toque cuando el mapa está en miniatura */
+.tapper{display:none;position:absolute;inset:0;z-index:600;background:transparent;border:0;padding:0;
+  border-radius:16px;place-items:end center}
+.tapper span{margin-bottom:7px;background:rgba(11,22,34,.92);color:var(--paper);border:1px solid var(--line);
+  font:700 9px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:999px}
+.guessbox.has-pin .tapper span{background:var(--brass);color:var(--brass-ink);border-color:var(--brass)}
+@keyframes minipulse{0%,100%{box-shadow:0 8px 22px #000a,0 0 0 0 rgba(242,193,78,.5)}
+  50%{box-shadow:0 8px 22px #000a,0 0 0 9px rgba(242,193,78,0)}}
+
+/* ---------- móvil: el mapa vive en miniatura y se abre al tocarlo ---------- */
+@media (max-width:820px){
+  .guessbox{left:auto;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));
+    width:92px;height:92px;gap:0;opacity:1;
+    transition:width .3s cubic-bezier(.2,.9,.25,1),height .3s cubic-bezier(.2,.9,.25,1),right .3s,left .3s}
+  .guessbox:hover{width:92px;height:92px}
+  .guessbox #gmap{border-radius:16px;border:2px solid rgba(238,243,248,.85);box-shadow:0 8px 22px #000a}
+  .guessbox:not(.big):not(.has-pin) #gmap{animation:minipulse 2.6s ease-out infinite}
+  .guessbox:not(.big) .leaflet-control-zoom,.guessbox:not(.big) .cont{display:none}
+  .guessbox .btn,.guessbox .sizer{display:none}
+  .tapper{display:grid}
+
+  .guessbox.big{left:8px;right:8px;width:auto;gap:8px;
+    height:min(74vh,calc(100vh - 88px));height:min(74dvh,calc(100dvh - 88px))}
+  .guessbox.big .btn{display:block;padding:15px 20px;font-size:16px}
+  .guessbox.big .sizer{display:block;padding:7px 12px;font-size:15px}
+  .guessbox.big .tapper{display:none}
+  .guessbox.big #gmap{border-radius:14px;animation:none}
+
+  /* más sitio para la vista de calle */
+  .mask-addr{width:auto;max-width:62vw;min-height:0;padding:8px 12px;gap:6px}
+  .mask-addr .mini{font-size:13px}
+  .mask-addr .mini svg{width:20px;height:20px}
+  .restart{padding:7px 10px;font-size:12px}
+  .hud{gap:6px}
+  .chip{padding:5px 9px}
+  .chip b{font-size:15px}
+  .chip span{font-size:9px}
+  .hp{min-width:112px}
+  /* resultado: el panel se desplaza y el mapa no desaparece */
+  #rmap{min-height:34vh}
+  .rpanel{max-height:60vh;overflow:auto;padding:14px 12px calc(14px + env(safe-area-inset-bottom))}
+  .boards,.scores{grid-template-columns:1fr}
+}
 .sizer{position:absolute;top:6px;left:6px;z-index:500;background:var(--ink);color:var(--paper);border:0;border-radius:8px;padding:4px 9px;font:600 13px var(--mono)}
 .toast{position:absolute;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%);z-index:7;background:var(--brass);color:var(--brass-ink);padding:8px 16px;border-radius:10px;font-weight:700}
 
@@ -220,6 +262,7 @@ input.code{font:600 22px var(--mono);letter-spacing:.3em;text-transform:uppercas
   <div class="guessbox" id="guessbox">
     <div id="gmap"><button class="sizer" id="sizer" title="Agrandar mapa">⤢</button></div>
     <button class="btn" id="guessBtn" disabled>Coloca tu chincheta en el mapa</button>
+    <button class="tapper" id="tapper" aria-label="Abrir el mapa"><span id="tapperTxt">Mapa</span></button>
   </div>
 </section>
 
@@ -359,13 +402,33 @@ function initGuessMap(){
   continentLayer(gmap);
   mateLayer=L.layerGroup().addTo(gmap);
   gmap.on("click",e=>{ if(G.locked) return; placePin(e.latlng); });
-  $("#sizer").addEventListener("click",e=>{ e.stopPropagation(); $("#guessbox").classList.toggle("big"); setTimeout(()=>gmap.invalidateSize(),250); });
+  $("#sizer").addEventListener("click",e=>{ e.stopPropagation(); setMapBig(!$("#guessbox").classList.contains("big")); });
+  $("#tapper").addEventListener("click",e=>{ e.stopPropagation(); setMapBig(true); });
   $("#guessbox").addEventListener("transitionend",()=>gmap.invalidateSize());
+}
+const isSmall = () => matchMedia("(max-width:820px)").matches;
+let savedView=null;
+function setMapBig(v){
+  const gb=$("#guessbox"), sz=$("#sizer");
+  if(v===gb.classList.contains("big")) return;
+  if(!v && isSmall() && gmap) savedView={c:gmap.getCenter(),z:gmap.getZoom()};
+  gb.classList.toggle("big",v);
+  sz.textContent = v?"✕":"⤢";
+  sz.title = v?"Empequeñecer el mapa":"Agrandar el mapa";
+  if(!gmap) return;
+  setTimeout(()=>{
+    gmap.invalidateSize();
+    if(!isSmall()) return;
+    if(v){ if(savedView){ gmap.setView(savedView.c,savedView.z,{animate:false}); savedView=null; } }
+    else if(G.pin) gmap.setView([G.pin.lat,G.pin.lng],1,{animate:false});
+  },320);
 }
 function placePin(ll){
   const p={lat:ll.lat,lng:((ll.lng+540)%360)-180};
   if(!myPin) myPin=L.marker(ll,{icon:pinIcon(COL[G.team||"S"])}).addTo(gmap); else myPin.setLatLng(ll);
   G.pin=p;
+  $("#guessbox").classList.add("has-pin");
+  $("#tapperTxt").textContent="✓ Listo";
   $("#guessBtn").disabled=false; $("#guessBtn").textContent="Adivinar";
   if(G.mode==="team") net.pin(p);
 }
@@ -373,6 +436,9 @@ function resetGuess(){
   if(myPin){ myPin.remove(); myPin=null; } mateLayer.clearLayers();
   G.pin=null; G.locked=false;
   const b=$("#guessBtn"); b.disabled=true; b.textContent="Coloca tu chincheta en el mapa";
+  $("#guessbox").classList.remove("has-pin");
+  $("#tapperTxt").textContent="Mapa";
+  savedView=null; setMapBig(false);
   gmap.setView([20,10],1); setTimeout(()=>gmap.invalidateSize(),50);
 }
 let rmap, rlayer;
@@ -657,6 +723,7 @@ $("#guessBtn").onclick=()=>{
   if(G.mode==="solo") return soloGuess();
   G.locked=true; net.toHost({t:"guess",p:G.pin});
   $("#guessBtn").disabled=true; $("#guessBtn").textContent="Hecho. Esperando al resto…";
+  if(isSmall()) setMapBig(false);
 };
 document.addEventListener("keydown",e=>{ if((e.key===" "||e.key==="Enter") && !$("#result").hidden){ const b=$("#nextR"); if(b&&!b.disabled){ e.preventDefault(); b.click(); return; } } if((e.key===" "||e.key==="Enter") && !$("#game").hidden && !$("#guessBtn").disabled && document.activeElement.tagName!=="INPUT"){ e.preventDefault(); $("#guessBtn").click(); } });
 // ?sala=ABCDE en el enlace abre directamente la pantalla de unirse
